@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% block title %}视频与图片检测 | DeepFake Detection{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+  <!-- 图片检测 -->
+  <div class="bg-white rounded-xl shadow p-6 flex flex-col items-center gap-4">
+    <i class="fa-solid fa-image text-3xl text-indigo-500"></i>
+    <h2 class="text-xl font-bold text-gray-800">图片检测</h2>
+    <form id="uploadFormImage" enctype="multipart/form-data" class="w-full flex flex-col gap-4">
+      <input type="file" name="image" id="imageFile" accept="image/*" required class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      <button type="submit" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">提交图片</button>
+    </form>
+    <div id="loadingImage" class="hidden flex flex-col items-center gap-2">
+      <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+      <span class="text-indigo-600 font-medium">正在处理您的图片...</span>
+    </div>
+    <div id="imageContainer" class="hidden w-full flex flex-col items-center gap-2">
+      <h3 class="text-lg font-semibold text-gray-700">检测结果图片：</h3>
+      <img class="rounded-lg shadow" id="processedImage" style="max-width: 320px;" />
+      <div id="imageResult" class="result"></div>
+      <div id="imageLabels" class="result"></div>
+      <div id="imageDetectedLabel" class="result"></div>
+      <button id="pdfDownloadImage" class="hidden py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">下载检测报告</button>
+    </div>
+  </div>
+  <!-- 视频检测 -->
+  <div class="bg-white rounded-xl shadow p-6 flex flex-col items-center gap-4">
+    <i class="fa-solid fa-film text-3xl text-indigo-500"></i>
+    <h2 class="text-xl font-bold text-gray-800">视频检测</h2>
+    <form id="uploadFormVideo" enctype="multipart/form-data" class="w-full flex flex-col gap-4">
+      <input type="file" name="video" id="videoFile" accept="video/*" required class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      <button type="submit" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">提交视频</button>
+    </form>
+    <div id="loadingVideo" class="hidden flex flex-col items-center gap-2">
+      <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+      <span class="text-indigo-600 font-medium">正在处理您的视频...</span>
+    </div>
+    <div id="videoContainer" class="hidden w-full flex flex-col items-center gap-2">
+      <h3 class="text-lg font-semibold text-gray-700">检测结果视频：</h3>
+      <video class="rounded-lg shadow" id="processedVideo" controls width="100%" style="max-width: 320px;"><source src="" type="video/mp4">您的浏览器不支持 video 标签。</video>
+      <div id="videoResult" class="result"></div>
+      <div id="videoLabels" class="result"></div>
+      <div id="videoDetectedLabel" class="result"></div>
+      <button id="pdfDownloadVideo" class="hidden py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">下载检测报告</button>
+    </div>
+  </div>
+</div>
+<div id="resultContainer" class="max-w-2xl mx-auto mt-8"></div>
+{% endblock %}
+{% block extra_body %}
+<script>
+  document.getElementById('uploadFormVideo').onsubmit = function(event) {
+    event.preventDefault();
+    var loading = document.getElementById('loadingVideo');
+    var videoContainer = document.getElementById('videoContainer');
+    var processedVideo = document.getElementById('processedVideo');
+    var videoResult = document.getElementById('videoResult');
+    var videoLabels = document.getElementById('videoLabels');
+    var videoDetectedLabel = document.getElementById('videoDetectedLabel');
+    var resultContainer = document.getElementById('resultContainer');
+    loading.classList.remove('hidden');
+    videoContainer.classList.add('hidden');
+    videoResult.innerHTML = '';
+    videoLabels.innerHTML = '';
+    videoDetectedLabel.innerHTML = '';
+    resultContainer.innerHTML = '';
+    var formData = new FormData();
+    var videoFile = document.getElementById('videoFile').files[0];
+    formData.append('video', videoFile);
+    fetch('http://127.0.0.1:8000/detect_objects_from_video/', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      loading.classList.add('hidden');
+      if (data.video_url) {
+        processedVideo.src = data.video_url;
+        videoContainer.classList.remove('hidden');
+        if (data.detected_label) {
+          videoDetectedLabel.innerHTML = `<div class='bg-indigo-50 rounded-lg p-4 mt-4 text-center'>检测结果为：${data.detected_label}</div>`;
+          pdfDownloadVideo.classList.remove('hidden');
+          pdfDownloadVideo.onclick = function() {
+            window.open(data.report_path, '_blank');
+          };
+        } else if (data.labels && data.labels.length > 0) {
+          videoResult.innerHTML = `<div class='bg-indigo-50 rounded-lg p-4 mt-4 text-center'>检测结果为：${data.labels.join(', ')}</div>`;
+        } else {
+          videoResult.innerHTML = `<div class='bg-indigo-50 rounded-lg p-4 mt-4 text-center'>未检测到标签</div>`;
+        }
+      } else {
+        alert('错误：' + data.error);
+      }
+    })
+    .catch(error => {
+      loading.classList.add('hidden');
+      console.error('错误：', error);
+    });
+  };
+  document.getElementById('uploadFormImage').onsubmit = function(event) {
+    event.preventDefault();
+    var loading = document.getElementById('loadingImage');
+    var imageContainer = document.getElementById('imageContainer');
+    var processedImage = document.getElementById('processedImage');
+    var imageResult = document.getElementById('imageResult');
+    var imageLabels = document.getElementById('imageLabels');
+    var imageDetectedLabel = document.getElementById('imageDetectedLabel');
+    var resultContainer = document.getElementById('resultContainer');
+    loading.classList.remove('hidden');
+    imageContainer.classList.add('hidden');
+    imageResult.innerHTML = '';
+    imageLabels.innerHTML = '';
+    imageDetectedLabel.innerHTML = '';
+    resultContainer.innerHTML = '';
+    var formData = new FormData();
+    var imageFile = document.getElementById('imageFile').files[0];
+    formData.append('image', imageFile);
+    fetch('http://127.0.0.1:8000/detect_objects_from_image/', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      loading.classList.add('hidden');
+      if (data.image_url) {
+        processedImage.src = data.image_url;
+        imageContainer.classList.remove('hidden');
+        if (data.detected_label) {
+          imageDetectedLabel.innerHTML = `<div class='bg-indigo-50 rounded-lg p-4 mt-4 text-center'>检测结果为：${data.detected_label}</div>`;
+          pdfDownloadImage.classList.remove('hidden');
+          pdfDownloadImage.onclick = function() {
+            window.open(data.report_path, '_blank');
+          };
+        } else if (data.labels && data.labels.length > 0) {
+          imageResult.innerHTML = `<div class='bg-indigo-50 rounded-lg p-4 mt-4 text-center'>检测结果为：${data.labels.join(', ')}</div>`;
+        } else {
+          imageResult.innerHTML = `<div class='bg-indigo-50 rounded-lg p-4 mt-4 text-center'>未检测到标签</div>`;
+        }
+      } else {
+        alert('错误：' + data.error);
+      }
+    })
+    .catch(error => {
+      loading.classList.add('hidden');
+      console.error('错误：', error);
+    });
+  };
+</script>
+{% endblock %}
+

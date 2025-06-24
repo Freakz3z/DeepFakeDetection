@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>伪影真鉴 DeepFake Detection</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Heroicons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="bg-gray-50 min-h-screen flex flex-col">
+    <!-- Navbar -->
+    <nav class="bg-white shadow p-4 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-robot text-indigo-600 text-2xl"></i>
+        <span class="font-bold text-xl text-gray-800">伪影真鉴 DeepFake Detection</span>
+      </div>
+      <div class="flex gap-4">
+        <a href="/history/" class="text-gray-700 hover:text-indigo-600 transition">历史</a>
+        <a href="/" class="text-gray-700 hover:text-indigo-600 transition">首页</a>
+      </div>
+    </nav>
+    <!-- Main Content -->
+    <main class="flex-1 container mx-auto px-4 py-8">
+      {% block content %}{% endblock %}
+    </main>
+    <!-- Footer -->
+    <footer class="bg-white shadow p-4 text-center text-gray-400 text-sm">
+      &copy; 2025 伪影真鉴 DeepFake Detection. All rights reserved.
+    </footer>
+    {% block extra_body %}{% endblock %}
+  </body>
+</html> 

@@ -1,0 +1,9 @@
+reportlab==4.1.0
+PyPDF2==3.0.1
+Django>=4.2
+Pillow>=10.0.0
+django-cors-headers>=4.3.0
+mysqlclient
+ultralytics
+opencv-python
+numpy

@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}AI换脸诈骗检测系统 | DeepFake Detection{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto mt-8">
+  <div class="flex flex-col md:flex-row gap-8">
+    <!-- 左侧：图像检测 -->
+    <div class="flex-1 bg-white rounded-xl shadow p-6 flex flex-col items-center gap-4">
+      <i class="fa-solid fa-image text-3xl text-indigo-500"></i>
+      <h2 class="text-xl font-bold text-gray-800">图像检测</h2>
+      <form id="uploadFormImage" enctype="multipart/form-data" class="w-full flex flex-col gap-4">
+        <input type="file" name="image" id="imageFile" accept="image/*" required class="hidden" />
+        <button type="button" id="selectImageBtn" class="w-full py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow transition">选择图片</button>
+        <button type="submit" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">提交图像</button>
+      </form>
+      <div id="imagePreviewContainer" class="w-full flex flex-col items-center gap-2 hidden">
+        <img id="imagePreview" class="rounded-lg shadow max-h-64" style="max-width: 320px;" />
+      </div>
+      <div id="loadingImage" class="hidden flex flex-col items-center gap-2">
+        <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+        <span class="text-indigo-600 font-medium">正在处理您的图像...</span>
+      </div>
+      <div id="imageContainer" class="hidden w-full flex flex-col items-center gap-2">
+        <h3 class="text-lg font-semibold text-gray-700">检测结果图片：</h3>
+        <img class="rounded-lg shadow" id="processedImage" style="max-width: 320px;" />
+        <div id="imageDetectedLabel" class="result"></div>
+      </div>
+      <button id="pdfDownloadImage" class="btnn download-pdf hidden mt-2">下载检测报告</button>
+    </div>
+    <!-- 右侧：视频检测 -->
+    <div class="flex-1 bg-white rounded-xl shadow p-6 flex flex-col items-center gap-4">
+      <i class="fa-solid fa-film text-3xl text-indigo-500"></i>
+      <h2 class="text-xl font-bold text-gray-800">视频检测</h2>
+      <form id="uploadFormVideo" enctype="multipart/form-data" class="w-full flex flex-col gap-4">
+        <input type="file" name="video" id="videoFile" accept="video/*" required class="hidden" />
+        <button type="button" id="selectVideoBtn" class="w-full py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow transition">选择视频</button>
+        <button type="submit" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">提交视频</button>
+      </form>
+      <div id="videoPreviewContainer" class="w-full flex flex-col items-center gap-2 hidden">
+        <video id="videoPreview" class="rounded-lg shadow max-h-64" style="max-width: 320px;" controls></video>
+      </div>
+      <div id="loadingVideo" class="hidden flex flex-col items-center gap-2">
+        <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+        <span class="text-indigo-600 font-medium">正在处理您的视频...</span>
+      </div>
+      <div id="videoContainer" class="hidden w-full flex flex-col items-center gap-2">
+        <h3 class="text-lg font-semibold text-gray-700">检测结果视频：</h3>
+        <video class="rounded-lg shadow" id="processedVideo" controls width="100%" style="max-width: 320px;">您的浏览器不支持 video 标签。</video>
+        <div id="videoDetectedLabel" class="result"></div>
+      </div>
+      <button id="pdfDownloadVideo" class="btnn download-pdf hidden mt-2">下载检测报告</button>
+    </div>
+  </div>
+  <div id="resultContainer" class="max-w-2xl mx-auto mt-8"></div>
+</div>
+{% endblock %}
+{% block extra_body %}
+<script>
+  // 图像检测表单
+  document.getElementById('uploadFormImage').onsubmit = function(event) {
+    event.preventDefault();
+    var loading = document.getElementById('loadingImage');
+    var imageContainer = document.getElementById('imageContainer');
+    var processedImage = document.getElementById('processedImage');
+    var imageDetectedLabel = document.getElementById('imageDetectedLabel');
+    var pdfDownloadImage = document.getElementById('pdfDownloadImage');
+    var resultContainer = document.getElementById('resultContainer');
+    loading.classList.remove('hidden');
+    imageContainer.classList.add('hidden');
+    imageDetectedLabel.innerHTML = '';
+    pdfDownloadImage.classList.add('hidden');
+    resultContainer.innerHTML = '';
+    var formData = new FormData();
+    var imageFile = document.getElementById('imageFile').files[0];
+    formData.append('image', imageFile);
+    fetch('http://127.0.0.1:8000/detect_objects_from_image/', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      loading.classList.add('hidden');
+      if (data.image_url) {
+        processedImage.src = data.image_url;
+        imageContainer.classList.remove('hidden');
+        if (data.detected_label) {
+          imageDetectedLabel.innerHTML = `<div class='bg-indigo-50 rounded-lg p-4 mt-4 text-center'>检测结果为：${data.detected_label}</div>`;
+          pdfDownloadImage.classList.remove('hidden');
+          pdfDownloadImage.onclick = function() {
+            window.open(data.report_path, '_blank');
+          };
+        }
+      } else {
+        alert('Error: ' + data.error);
+      }
+    })
+    .catch(error => {
+      loading.classList.add('hidden');
+      console.error('Error:', error);
+    });
+  };
+  // 视频检测表单
+  document.getElementById('uploadFormVideo').onsubmit = function(event) {
+    event.preventDefault();
+    var loading = document.getElementById('loadingVideo');
+    var videoContainer = document.getElementById('videoContainer');
+    var processedVideo = document.getElementById('processedVideo');
+    var videoDetectedLabel = document.getElementById('videoDetectedLabel');
+    var pdfDownloadVideo = document.getElementById('pdfDownloadVideo');
+    var resultContainer = document.getElementById('resultContainer');
+    loading.classList.remove('hidden');
+    videoContainer.classList.add('hidden');
+    videoDetectedLabel.innerHTML = '';
+    pdfDownloadVideo.classList.add('hidden');
+    resultContainer.innerHTML = '';
+    var formData = new FormData();
+    var videoFile = document.getElementById('videoFile').files[0];
+    formData.append('video', videoFile);
+    fetch('http://127.0.0.1:8000/detect_objects_from_video/', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      loading.classList.add('hidden');
+      if (data.video_url) {
+        processedVideo.src = data.video_url;
+        videoContainer.classList.remove('hidden');
+        if (data.detected_label) {
+          videoDetectedLabel.innerHTML = `<div class='bg-indigo-50 rounded-lg p-4 mt-4 text-center'>检测结果为：${data.detected_label}</div>`;
+          pdfDownloadVideo.classList.remove('hidden');
+          pdfDownloadVideo.onclick = function() {
+            window.open(data.report_path, '_blank');
+          };
+        }
+      } else {
+        alert('Error: ' + data.error);
+      }
+    })
+    .catch(error => {
+      loading.classList.add('hidden');
+      console.error('Error:', error);
+    });
+  };
+  // 文件选择按钮逻辑
+  document.getElementById('selectImageBtn').onclick = function() {
+    document.getElementById('imageFile').click();
+  };
+  document.getElementById('selectVideoBtn').onclick = function() {
+    document.getElementById('videoFile').click();
+  };
+  // 图片预览
+  document.getElementById('imageFile').onchange = function(event) {
+    const file = event.target.files[0];
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const preview = document.getElementById('imagePreview');
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        preview.src = e.target.result;
+        previewContainer.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    } else {
+      preview.src = '';
+      previewContainer.classList.add('hidden');
+    }
+  };
+  // 视频预览
+  document.getElementById('videoFile').onchange = function(event) {
+    const file = event.target.files[0];
+    const previewContainer = document.getElementById('videoPreviewContainer');
+    const preview = document.getElementById('videoPreview');
+    if (file) {
+      preview.src = URL.createObjectURL(file);
+      previewContainer.classList.remove('hidden');
+    } else {
+      preview.src = '';
+      previewContainer.classList.add('hidden');
+    }
+  };
+</script>
+{% endblock %}
+

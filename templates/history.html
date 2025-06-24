@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}历史记录{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+  <h1 class="text-2xl font-bold mb-6 text-gray-800">历史检测记录</h1>
+  {% if records %}
+    <div class="space-y-6">
+      {% for rec in records %}
+        <div class="bg-white rounded-xl shadow p-4 flex flex-col md:flex-row gap-4 items-center">
+          <div class="w-40 h-28 flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
+            {% if rec.detection_type == 'image' %}
+              <img src="{{ rec.media_path }}" alt="预览图" class="object-contain max-h-28 max-w-full">
+            {% else %}
+              <video src="{{ rec.media_path }}" controls class="object-contain max-h-28 max-w-full"></video>
+            {% endif %}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap gap-x-6 gap-y-1 text-gray-700 text-sm">
+              <div>检测时间：{{ rec.timestamp|date:'Y-m-d H:i:s' }}</div>
+              <div>类型：{{ rec.get_detection_type_display }}</div>
+              <div>置信度：{{ rec.probability |floatformat:2 }}</div>
+            </div>
+            <div class="mt-2 text-gray-800 font-semibold">
+              检测结果：{{ rec.summary|default:'无' }}
+            </div>
+            <div class="mt-2 flex gap-2">
+              <a href="/media/{{ rec.report_path }}" target="_blank" class="inline-block py-1 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded shadow text-sm">下载报告</a>
+              <a href="/history/delete/{{ rec.id }}/" onclick="return confirm('确定要删除该记录吗？');" class="inline-block py-1 px-3 bg-red-500 hover:bg-red-600 text-white rounded shadow text-sm">删除</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-gray-500 text-center py-12">暂无检测记录</div>
+  {% endif %}
+</div>
+{% endblock %} 

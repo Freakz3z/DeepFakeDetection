@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}视频检测上传 | DeepFake Detection{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto bg-white rounded-xl shadow p-8 flex flex-col items-center gap-6">
+  <div class="flex flex-col items-center gap-2">
+    <i class="fa-solid fa-film text-4xl text-indigo-500"></i>
+    <h1 class="text-2xl font-bold text-gray-800">视频检测上传</h1>
+    <h4 class="text-gray-500">上传视频进行深度伪造检测</h4>
+  </div>
+  <form id="uploadForm" enctype="multipart/form-data" class="w-full flex flex-col gap-4">
+    <input type="file" name="video" id="videoFile" accept="video/*" required class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+    <button type="submit" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition">提交检测</button>
+  </form>
+  <div id="loading" class="hidden flex flex-col items-center gap-2">
+    <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+    <span class="text-indigo-600 font-medium">正在处理您的视频...</span>
+  </div>
+  <div id="videoContainer" class="hidden w-full flex flex-col items-center gap-2">
+    <h2 class="text-lg font-semibold text-gray-700">检测结果视频：</h2>
+    <video class="rounded-lg shadow" id="processedVideo" controls width="100%" style="max-width: 480px;">
+      <source src="" type="video/mp4">
+      您的浏览器不支持 video 标签。
+    </video>
+  </div>
+</div>
+{% endblock %}
+{% block extra_body %}
+<script>
+  document.getElementById('uploadForm').onsubmit = function(event) {
+    event.preventDefault();
+    var loading = document.getElementById('loading');
+    var videoContainer = document.getElementById('videoContainer');
+    var processedVideo = document.getElementById('processedVideo');
+
+    loading.classList.remove('hidden');
+    videoContainer.classList.add('hidden');
+
+    var formData = new FormData();
+    var videoFile = document.getElementById('videoFile').files[0];
+    formData.append('video', videoFile);
+
+    fetch('http://127.0.0.1:8000/detect_objects_from_video/', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      loading.classList.add('hidden');
+      if (data.video_url) {
+        processedVideo.src = data.video_url;
+        videoContainer.classList.remove('hidden');
+      } else {
+        alert('Error: ' + data.error);
+      }
+    })
+    .catch(error => {
+      loading.classList.add('hidden');
+      console.error('Error:', error);
+    });
+  }
+</script>
+{% endblock %}
