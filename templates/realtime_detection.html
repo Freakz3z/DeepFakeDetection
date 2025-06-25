@@ -54,8 +54,7 @@
   let lastDetectTime = 0;
   let lastImageData = null;
   let lastResult = '';
-  const debounceInterval = 300; // ms
-  const checkInterval = 100; // ms
+  const detectInterval = 3000; // 3秒检测一次
 
   navigator.mediaDevices.getUserMedia({ video: true })
     .then(stream => { video.srcObject = stream; })
@@ -87,18 +86,12 @@
 
   function detectFrame() {
     if (detecting) return;
-    const now = Date.now();
-    if (now - lastDetectTime < debounceInterval) return;
     if (video.videoWidth === 0 || video.videoHeight === 0) return;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    if (!isFrameChanged(currentImageData)) return;
-    lastImageData = currentImageData;
     detecting = true;
-    lastDetectTime = now;
     loading.classList.remove('hidden');
     result.classList.add('hidden');
     canvas.toBlob(function(blob) {
@@ -113,7 +106,18 @@
       .then(data => {
         loading.classList.add('hidden');
         result.classList.remove('hidden');
-        showResultAnimated(data.result || ('Error: ' + data.error));
+        // 处理labels逻辑
+        let displayText = '';
+        if (data.labels && data.labels.length > 0) {
+          if (data.labels.includes('FakeFace')) {
+            displayText = '检测到仿造假脸';
+          } else {
+            displayText = '检测到真人';
+          }
+        } else {
+          displayText = '未检测到人脸';
+        }
+        showResultAnimated(displayText);
       })
       .catch(error => {
         loading.classList.add('hidden');
@@ -126,6 +130,6 @@
     }, 'image/jpeg');
   }
 
-  setInterval(detectFrame, checkInterval);
+  setInterval(detectFrame, detectInterval);
 </script>
 {% endblock %}
