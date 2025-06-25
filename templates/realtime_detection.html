@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}实时检测 | DeepFake Detection{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white rounded-xl shadow p-8 flex flex-col items-center gap-6">
+  <div class="flex flex-col items-center gap-2">
+    <i class="fa-solid fa-camera text-4xl text-indigo-500"></i>
+    <h1 class="text-2xl font-bold text-gray-800">实时检测</h1>
+    <h4 class="text-gray-500">通过摄像头实时检测图像</h4>
+  </div>
+  <video id="video" autoplay playsinline class="rounded-lg shadow w-full max-w-lg aspect-video" style="min-height:320px;"></video>
+  <canvas id="canvas" class="hidden"></canvas>
+  <div id="loading" class="hidden flex flex-col items-center gap-2">
+    <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+    <span class="text-indigo-600 font-medium">正在检测...</span>
+  </div>
+  <div id="result" class="hidden w-full flex flex-col items-center gap-2">
+    <h2 class="text-lg font-semibold text-gray-700">检测结果：</h2>
+    <div id="resultText" class="text-gray-800"></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_body %}
+<style>
+  .fade-in {
+    animation: fadeIn 0.5s;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  .result-flash {
+    animation: flashResult 0.6s;
+  }
+  @keyframes flashResult {
+    0% { background: #fef08a; }
+    100% { background: transparent; }
+  }
+  .loading-spin {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const loading = document.getElementById('loading');
+  const result = document.getElementById('result');
+  const resultText = document.getElementById('resultText');
+
+  let detecting = false;
+  let lastDetectTime = 0;
+  let lastImageData = null;
+  let lastResult = '';
+  const debounceInterval = 300; // ms
+  const checkInterval = 100; // ms
+
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => { video.srcObject = stream; })
+    .catch(err => { alert('无法访问摄像头: ' + err); });
+
+  function isFrameChanged(currentData) {
+    if (!lastImageData) return true;
+    let diff = 0;
+    let sample = 0;
+    for (let i = 0; i < currentData.data.length; i += 40) {
+      if (Math.abs(currentData.data[i] - lastImageData.data[i]) > 15) diff++;
+      sample++;
+      if (diff > 10) return true;
+    }
+    return false;
+  }
+
+  function showResultAnimated(text) {
+    if (resultText.textContent !== text) {
+      resultText.classList.remove('result-flash');
+      void resultText.offsetWidth; // 触发重绘
+      resultText.textContent = text;
+      resultText.classList.add('result-flash');
+    }
+    result.classList.remove('fade-in');
+    void result.offsetWidth;
+    result.classList.add('fade-in');
+  }
+
+  function detectFrame() {
+    if (detecting) return;
+    const now = Date.now();
+    if (now - lastDetectTime < debounceInterval) return;
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    if (!isFrameChanged(currentImageData)) return;
+    lastImageData = currentImageData;
+    detecting = true;
+    lastDetectTime = now;
+    loading.classList.remove('hidden');
+    result.classList.add('hidden');
+    canvas.toBlob(function(blob) {
+      const formData = new FormData();
+      formData.append('image', blob, 'capture.jpg');
+      fetch('/realtime_detect/', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        loading.classList.add('hidden');
+        result.classList.remove('hidden');
+        showResultAnimated(data.result || ('Error: ' + data.error));
+      })
+      .catch(error => {
+        loading.classList.add('hidden');
+        result.classList.remove('hidden');
+        showResultAnimated('检测失败: ' + error);
+      })
+      .finally(() => {
+        detecting = false;
+      });
+    }, 'image/jpeg');
+  }
+
+  setInterval(detectFrame, checkInterval);
+</script>
+{% endblock %}

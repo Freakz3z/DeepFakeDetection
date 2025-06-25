@@ -56,7 +56,9 @@ INSTALLED_APPS = [
     'polls.apps.PollsConfig',
     'django.contrib.staticfiles',
     'corsheaders',
-    'custom_auth.apps.AuthConfig'
+    'custom_auth.apps.AuthConfig',
+    'rest_framework',
+    'widget_tweaks',
 ]
 
 AUTH_USER_MODEL = 'custom_auth.User'

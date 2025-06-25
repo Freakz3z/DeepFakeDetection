@@ -23,10 +23,11 @@ from django.urls import path, include
 from custom_auth import views as custom_auth_views
 
 urlpatterns = [
-    path('accounts/', include('django.contrib.auth.urls')),
+    path('accounts/login/', custom_auth_views.login_view, name='login'),
     path('register/', custom_auth_views.register, name='register'),
     path('admin/', admin.site.urls),
     path('', include('polls.urls')),
+    path('custom_auth/', include('custom_auth.urls')),
     path('history/', custom_auth_views.history_view, name='history'),
     path('history/delete/<int:record_id>/', custom_auth_views.delete_record, name='delete_record'),
 ]

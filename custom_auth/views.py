@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 from .models import DetectionRecord
 from django.contrib import messages
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from .forms import UserRegisterForm
 from .models import User
@@ -39,17 +39,9 @@ def login_view(request):
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-                messages.success(request, f'欢迎回来，{username}！')
-                return redirect('home')  # 登录成功后重定向到主页
-            else:
-                messages.error(request, '用户名或密码错误')
-        else:
-            messages.error(request, '请输入有效的用户名和密码')
+            user = form.get_user()
+            login(request, user)
+            return redirect('home')
     else:
         form = AuthenticationForm()
     return render(request, 'registration/login.html', {'form': form})
@@ -109,6 +101,12 @@ def generate_report(detection_record):
         if current:
             lines.append(current)
         return lines
+    def check_page_and_renew(p, y, fontname='SimHei', fontsize=12, margin=100, reset_y=780):
+        if y < margin:
+            p.showPage()
+            p.setFont(fontname, fontsize)
+            return reset_y
+        return y
     try:
         if detection_record.detection_type == 'video':
             try:
@@ -122,35 +120,41 @@ def generate_report(detection_record):
                 if total_frames:
                     p.drawString(110, y, f'总帧数: {total_frames}')
                     y -= 18
+                    y = check_page_and_renew(p, y)
                 if labels:
-                    # 自动换行输出所有标签
                     label_str = '所有检测标签: ' + ', '.join(labels)
                     for line in wrap_text(label_str, max_width, p):
                         p.drawString(110, y, line)
                         y -= 16
+                        y = check_page_and_renew(p, y)
                 if issues:
                     p.drawString(110, y, '检测到伪造人脸的帧:')
                     y -= 18
+                    y = check_page_and_renew(p, y)
                     for issue in issues:
                         issue_str = f"帧号 {issue['frame']} (时间: {issue['time']}秒): {issue['label']}"
                         for line in wrap_text(issue_str, max_width-20, p):
                             p.drawString(120, y, line)
                             y -= 15
+                            y = check_page_and_renew(p, y)
                 else:
                     p.drawString(110, y, '未在任何帧检测到伪造人脸。')
                     y -= 18
+                    y = check_page_and_renew(p, y)
             else:
                 p.drawString(110, y, '无详细帧信息。')
                 y -= 18
+                y = check_page_and_renew(p, y)
         else:
-            # 图片检测
             label_str = f"检测标签: {detection_record.result}"
             for line in wrap_text(label_str, max_width, p):
                 p.drawString(110, y, line)
                 y -= 16
+                y = check_page_and_renew(p, y)
     except Exception as e:
         p.drawString(110, y, f'检测详情解析出错: {e}')
         y -= 18
+        y = check_page_and_renew(p, y)
 
     # 结论段落（中文）
     from reportlab.lib.styles import ParagraphStyle
@@ -295,3 +299,8 @@ def delete_record(request, record_id):
         return HttpResponseForbidden('无权限或记录不存在')
     rec.delete()
     return HttpResponseRedirect(reverse('history'))
+
+
+def logout_view(request):
+    logout(request)
+    return redirect('/custom_auth/login/')

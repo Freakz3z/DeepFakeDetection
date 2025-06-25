@@ -12,14 +12,27 @@
   </head>
   <body class="bg-gray-50 min-h-screen flex flex-col">
     <!-- Navbar -->
-    <nav class="bg-white shadow p-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
+    <nav class="bg-white shadow p-4 relative flex items-center">
+      <!-- 左侧logo -->
+      <div class="flex items-center gap-2 z-10">
         <i class="fa-solid fa-robot text-indigo-600 text-2xl"></i>
-        <span class="font-bold text-xl text-gray-800">伪影真鉴 DeepFake Detection</span>
+        <span class="font-bold text-xl text-gray-800">伪影真鉴</span>
       </div>
-      <div class="flex gap-4">
-        <a href="/history/" class="text-gray-700 hover:text-indigo-600 transition">历史</a>
-        <a href="/" class="text-gray-700 hover:text-indigo-600 transition">首页</a>
+      <!-- 居中链接 -->
+      <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-2 items-center">
+        <a href="/history/" class="px-3 py-1 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition font-medium {% if request.path == '/history/' %}bg-indigo-100 text-indigo-700{% endif %}">历史记录</a>
+        <a href="/" class="px-3 py-1 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition font-medium {% if request.path == '/' %}bg-indigo-100 text-indigo-700{% endif %}">上传检测</a>
+        <a href="/realtime_detection/" class="px-3 py-1 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition font-medium {% if request.path == '/realtime_detection/' %}bg-indigo-100 text-indigo-700{% endif %}">实时检测</a>
+      </div>
+      <!-- 右侧用户区 -->
+      <div class="flex gap-2 items-center ml-auto z-10">
+        {% if user.is_authenticated %}
+          <span class="text-gray-700">{{ user.username }}</span>
+          <a href="/custom_auth/logout/" class="px-3 py-1 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-500 transition font-medium">退出</a>
+        {% else %}
+          <a href="/accounts/login/" class="px-3 py-1 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition font-medium {% if request.path == '/accounts/login/' or request.path == '/custom_auth/login/' %}bg-indigo-100 text-indigo-700{% endif %}">登录</a>
+          <a href="/register/" class="px-3 py-1 rounded-lg text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition font-medium {% if request.path == '/register/' %}bg-indigo-100 text-indigo-700{% endif %}">注册</a>
+        {% endif %}
       </div>
     </nav>
     <!-- Main Content -->

@@ -11,6 +11,16 @@ import uuid
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 import json
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import status
+from PIL import Image
+import io
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
 def upload_image(request):
@@ -236,4 +246,71 @@ def detect_objects_from_video(request):
         })
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         return response
+
+
+# --- API for Android App ---
+class DetectImageAPI(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, format=None):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            image = Image.open(file_obj).convert("RGB")
+            results = model(image)
+            detections = []
+            for r in results:
+                for box in r.boxes:
+                    detections.append({
+                        "class": int(box.cls[0]),
+                        "confidence": float(box.conf[0]),
+                        "box": [float(x) for x in box.xyxy[0].tolist()]
+                    })
+            return Response({"detections": detections})
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@login_required
+def realtime_detection(request):
+    return render(request, 'realtime_detection.html')
+
+@csrf_exempt
+@login_required
+@require_POST
+def realtime_detect(request):
+    image = request.FILES.get('image')
+    if not image:
+        return JsonResponse({'error': 'No image uploaded'}, status=400)
+    try:
+        # 保存临时图片
+        with NamedTemporaryFile(delete=False) as temp_image:
+            for chunk in image.chunks():
+                temp_image.write(chunk)
+            temp_image_path = temp_image.name
+        # 读取图片
+        img = cv2.imread(temp_image_path)
+        if img is None:
+            return JsonResponse({'error': 'Failed to read image.'}, status=500)
+        # 模型推理
+        results = model.predict(img, conf=0.25, iou=0.85)
+        labels = []
+        conf_values = []
+        for box in results[0].boxes:
+            conf_values.append(box.conf.item())
+            x_min, y_min, x_max, y_max = map(int, box.xyxy[0])
+            label = model.names[int(box.cls)]
+            labels.append(label)
+            cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (0, 255, 255), 2)
+            cv2.putText(img, label, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        if len(labels) == 0:
+            return_value = '未检测到伪造内容'
+        elif 'FakeFace' in labels:
+            return_value = '检测到伪造人脸'
+        else:
+            return_value = '未检测到伪造人脸'
+        return JsonResponse({'result': return_value, 'labels': labels})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
